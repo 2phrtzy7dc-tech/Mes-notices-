@@ -24,7 +24,7 @@
         <h2>Que voulez-vous faire ?</h2>
         
         <div class="menu-btns">
-            <button class="cam-btn" id="openCam">📸 Ouvrir la caméra</button>
+            <button class="cam-btn" id="openCam">📸 Ouvrir la caméra arrière</button>
             <button class="text-btn" id="openText">✍️ Écrire un texte</button>
         </div>
 
@@ -38,25 +38,35 @@
         const video = document.getElementById('videoRender');
         const textArea = document.getElementById('textInput');
 
-        // Action pour la Caméra
         camBtn.addEventListener('click', async () => {
-            textArea.style.display = "none"; // Cache le texte si ouvert
-            video.style.display = "block"; // Affiche la vidéo
+            textArea.style.display = "none";
+            video.style.display = "block";
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                // Ici on force la caméra arrière avec "environment"
+                const constraints = { 
+                    video: { facingMode: { exact: "environment" } } 
+                };
+                
+                // Si l'iPhone bloque l'accès "exact", on essaie une méthode plus souple
+                let stream;
+                try {
+                    stream = await navigator.mediaDevices.getUserMedia(constraints);
+                } catch (e) {
+                    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+                }
+                
                 video.srcObject = stream;
             } catch (err) {
-                alert("Erreur caméra : Vérifiez les autorisations.");
+                alert("Erreur : Impossible d'accéder à la caméra arrière.");
             }
         });
 
-        // Action pour le Texte
         textBtn.addEventListener('click', () => {
-            video.style.display = "none"; // Cache la vidéo si ouverte
+            video.style.display = "none";
             if (video.srcObject) {
-                video.srcObject.getTracks().forEach(track => track.stop()); // Coupe la caméra
+                video.srcObject.getTracks().forEach(track => track.stop());
             }
-            textArea.style.display = "block"; // Affiche la zone de texte
+            textArea.style.display = "block";
             textArea.focus();
         });
     </script>
