@@ -7,67 +7,98 @@
     <style>
         body { font-family: sans-serif; text-align: center; padding: 20px; background: #f4f4f9; color: #333; }
         .container { max-width: 500px; margin: auto; }
-        .menu-btns { display: flex; flex-direction: column; gap: 15px; margin-top: 30px; }
+        .menu-btns { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
         button { 
-            padding: 20px; font-size: 18px; cursor: pointer; border: none; 
-            border-radius: 12px; transition: 0.3s; color: white; font-weight: bold;
+            padding: 15px; font-size: 16px; cursor: pointer; border: none; 
+            border-radius: 10px; transition: 0.3s; color: white; font-weight: bold;
         }
         .cam-btn { background-color: #007bff; }
+        .snap-btn { background-color: #ffc107; color: #000; display: none; margin-top: 10px; width: 100%; }
+        .save-btn { background-color: #28a745; display: none; margin-top: 10px; width: 100%; }
         .text-btn { background-color: #6c757d; }
-        video { width: 100%; border-radius: 10px; background: #000; margin-top: 20px; display: none; }
-        textarea { width: 100%; height: 150px; margin-top: 20px; display: none; border-radius: 10px; padding: 10px; border: 1px solid #ccc; }
+        
+        video, canvas { width: 100%; border-radius: 10px; background: #000; margin-top: 15px; display: none; }
+        textarea { width: 100%; height: 150px; margin-top: 15px; display: none; border-radius: 10px; padding: 10px; border: 1px solid #ccc; box-sizing: border-box; }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <h2>Que voulez-vous faire ?</h2>
+        <h2>Capture de Notice</h2>
         
         <div class="menu-btns">
-            <button class="cam-btn" id="openCam">📸 Ouvrir la caméra arrière</button>
+            <button class="cam-btn" id="openCam">📸 Activer Caméra Arrière</button>
             <button class="text-btn" id="openText">✍️ Écrire un texte</button>
         </div>
 
         <video id="videoRender" autoplay playsinline></video>
+        <button class="snap-btn" id="snap">📸 Prendre la Photo</button>
+        
+        <canvas id="canvas"></canvas>
+        <button class="save-btn" id="save">💾 Enregistrer l'image</button>
+
         <textarea id="textInput" placeholder="Tapez votre notice ici..."></textarea>
     </div>
 
     <script>
         const camBtn = document.getElementById('openCam');
         const textBtn = document.getElementById('openText');
+        const snapBtn = document.getElementById('snap');
+        const saveBtn = document.getElementById('save');
         const video = document.getElementById('videoRender');
+        const canvas = document.getElementById('canvas');
         const textArea = document.getElementById('textInput');
 
+        // Ouvrir la caméra arrière
         camBtn.addEventListener('click', async () => {
             textArea.style.display = "none";
+            canvas.style.display = "none";
+            saveBtn.style.display = "none";
             video.style.display = "block";
+            snapBtn.style.display = "block";
+
             try {
-                // Ici on force la caméra arrière avec "environment"
-                const constraints = { 
-                    video: { facingMode: { exact: "environment" } } 
-                };
-                
-                // Si l'iPhone bloque l'accès "exact", on essaie une méthode plus souple
-                let stream;
-                try {
-                    stream = await navigator.mediaDevices.getUserMedia(constraints);
-                } catch (e) {
-                    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-                }
-                
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: "environment" } 
+                });
                 video.srcObject = stream;
             } catch (err) {
-                alert("Erreur : Impossible d'accéder à la caméra arrière.");
+                alert("Erreur : Caméra inaccessible.");
             }
         });
 
+        // Prendre la photo
+        snapBtn.addEventListener('click', () => {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            
+            // Affichage du résultat
+            video.style.display = "none";
+            snapBtn.style.display = "none";
+            canvas.style.display = "block";
+            saveBtn.style.display = "block";
+
+            // Arrêt de la caméra pour économiser la batterie
+            video.srcObject.getTracks().forEach(track => track.stop());
+        });
+
+        // Enregistrer la photo sur le téléphone
+        saveBtn.addEventListener('click', () => {
+            const link = document.createElement('a');
+            link.download = 'ma-notice.png';
+            link.href = canvas.toDataURL();
+            link.click();
+        });
+
+        // Mode texte
         textBtn.addEventListener('click', () => {
             video.style.display = "none";
-            if (video.srcObject) {
-                video.srcObject.getTracks().forEach(track => track.stop());
-            }
+            snapBtn.style.display = "none";
+            canvas.style.display = "none";
+            saveBtn.style.display = "none";
+            if (video.srcObject) video.srcObject.getTracks().forEach(track => track.stop());
             textArea.style.display = "block";
-            textArea.focus();
         });
     </script>
 
