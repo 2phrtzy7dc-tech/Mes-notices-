@@ -3,104 +3,129 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mes Notices</title>
+    <title>Scanner de Notices PDF</title>
     <style>
-        body { font-family: sans-serif; text-align: center; padding: 20px; background: #f4f4f9; color: #333; }
+        body { font-family: sans-serif; text-align: center; padding: 20px; background: #121212; color: #eee; }
         .container { max-width: 500px; margin: auto; }
-        .menu-btns { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
+        
+        /* Boutons */
         button { 
             padding: 15px; font-size: 16px; cursor: pointer; border: none; 
-            border-radius: 10px; transition: 0.3s; color: white; font-weight: bold;
+            border-radius: 10px; transition: 0.3s; color: white; font-weight: bold; width: 100%; margin-top: 10px;
         }
         .cam-btn { background-color: #007bff; }
-        .snap-btn { background-color: #ffc107; color: #000; display: none; margin-top: 10px; width: 100%; }
-        .save-btn { background-color: #28a745; display: none; margin-top: 10px; width: 100%; }
+        .snap-btn { background-color: #ffc107; color: #000; display: none; }
+        .search-btn { background-color: #28a745; margin-top: 15px; }
         .text-btn { background-color: #6c757d; }
-        
+
+        /* Éléments visuels */
         video, canvas { width: 100%; border-radius: 10px; background: #000; margin-top: 15px; display: none; }
-        textarea { width: 100%; height: 150px; margin-top: 15px; display: none; border-radius: 10px; padding: 10px; border: 1px solid #ccc; box-sizing: border-box; }
+        #status { margin-top: 10px; color: #ffc107; font-weight: bold; min-height: 20px; }
+        textarea { 
+            width: 100%; height: 100px; margin-top: 15px; display: none; 
+            border-radius: 10px; padding: 10px; border: 1px solid #444; 
+            background: #222; color: white; box-sizing: border-box; 
+        }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <h2>Capture de Notice</h2>
+        <h2>🔍 Trouver ma Notice PDF</h2>
         
+        <div id="status"></div>
+
         <div class="menu-btns">
-            <button class="cam-btn" id="openCam">📸 Activer Caméra Arrière</button>
-            <button class="text-btn" id="openText">✍️ Écrire un texte</button>
+            <button class="cam-btn" id="openCam">📸 Scanner une étiquette</button>
+            <button class="text-btn" id="openText">✍️ Taper la référence</button>
         </div>
 
         <video id="videoRender" autoplay playsinline></video>
-        <button class="snap-btn" id="snap">📸 Prendre la Photo</button>
+        <button class="snap-btn" id="snap">RECHERCHER DEPUIS LA PHOTO</button>
         
-        <canvas id="canvas"></canvas>
-        <button class="save-btn" id="save">💾 Enregistrer l'image</button>
+        <textarea id="textInput" placeholder="Ex: Samsung Crystal UHD 4K..."></textarea>
+        <button class="search-btn" id="manualSearch" style="display:none;">RECHERCHER LE PDF</button>
 
-        <textarea id="textInput" placeholder="Tapez votre notice ici..."></textarea>
+        <canvas id="canvas" style="display:none;"></canvas>
     </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
 
     <script>
         const camBtn = document.getElementById('openCam');
         const textBtn = document.getElementById('openText');
         const snapBtn = document.getElementById('snap');
-        const saveBtn = document.getElementById('save');
+        const manualSearchBtn = document.getElementById('manualSearch');
         const video = document.getElementById('videoRender');
         const canvas = document.getElementById('canvas');
         const textArea = document.getElementById('textInput');
+        const status = document.getElementById('status');
 
-        // Ouvrir la caméra arrière
+        // --- FONCTION DE RECHERCHE ---
+        function searchPDF(query) {
+            if (!query || query.trim().length < 2) return;
+            status.innerText = "Ouverture de la notice...";
+            
+            // On ajoute "filetype:pdf" pour forcer les résultats en PDF
+            const searchUrl = "https://www.google.com/search?q=" + encodeURIComponent("notice manuel d'utilisation pdf " + query) + "&btnI=1";
+            window.open(searchUrl, '_blank');
+        }
+
+        // --- MODE CAMÉRA ---
         camBtn.addEventListener('click', async () => {
-            textArea.style.display = "none";
-            canvas.style.display = "none";
-            saveBtn.style.display = "none";
+            resetUI();
             video.style.display = "block";
             snapBtn.style.display = "block";
-
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { facingMode: "environment" } 
-                });
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
                 video.srcObject = stream;
-            } catch (err) {
-                alert("Erreur : Caméra inaccessible.");
-            }
+            } catch (err) { alert("Caméra inaccessible."); }
         });
 
-        // Prendre la photo
+        // --- ANALYSE DE LA PHOTO (OCR) ---
         snapBtn.addEventListener('click', () => {
+            status.innerText = "Analyse du texte en cours... ⏳";
+            
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
             canvas.getContext('2d').drawImage(video, 0, 0);
             
-            // Affichage du résultat
-            video.style.display = "none";
-            snapBtn.style.display = "none";
-            canvas.style.display = "block";
-            saveBtn.style.display = "block";
-
-            // Arrêt de la caméra pour économiser la batterie
-            video.srcObject.getTracks().forEach(track => track.stop());
-        });
-
-        // Enregistrer la photo sur le téléphone
-        saveBtn.addEventListener('click', () => {
-            const link = document.createElement('a');
-            link.download = 'ma-notice.png';
-            link.href = canvas.toDataURL();
-            link.click();
-        });
-
-        // Mode texte
-        textBtn.addEventListener('click', () => {
-            video.style.display = "none";
-            snapBtn.style.display = "none";
-            canvas.style.display = "none";
-            saveBtn.style.display = "none";
+            // On arrête la caméra
             if (video.srcObject) video.srcObject.getTracks().forEach(track => track.stop());
-            textArea.style.display = "block";
-        });
-    </script>
+            video.style.display = "none";
+            snapBtn.style.display = "none";
 
+            // Utilisation de Tesseract pour lire l'image
+            Tesseract.recognize(canvas, 'fra+eng').then(({ data: { text } }) => {
+                const cleanedText = text.replace(/\n/g, ' ').trim();
+                if (cleanedText.length > 3) {
+                    status.innerText = "Trouvé : " + cleanedText;
+                    searchPDF(cleanedText);
+                } else {
+                    status.innerText = "❌ Texte non reconnu. Réessayez.";
+                }
+            });
+        });
+
+        // --- MODE TEXTE ---
+        textBtn.addEventListener('click', () => {
+            resetUI();
+            textArea.style.display = "block";
+            manualSearchBtn.style.display = "block";
+        });
+
+        manualSearchBtn.addEventListener('click', () => {
+            searchPDF(textArea.value);
+        });
+
+        function resetUI() {
+            if (video.srcObject) video.srcObject.getTracks().forEach(track => track.stop());
+            video.style.display = "none";
+            snapBtn.style.display = "none";
+            textArea.style.display = "none";
+            manualSearchBtn.style.display = "none";
+            status.innerText = "";
+        }
+    </script>
 </body>
 </html>
